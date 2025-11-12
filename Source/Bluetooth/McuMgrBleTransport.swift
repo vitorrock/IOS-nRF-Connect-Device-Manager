@@ -406,7 +406,6 @@ extension McuMgrBleTransport: McuMgrTransport {
         let negotiatedMTU = targetPeripheral.maximumWriteValueLength(for: .withoutResponse)
         if mtu != negotiatedMTU {
             log(msg: "peripheral.maximumWriteValueLength(for: .withoutResponse): \(negotiatedMTU) != Current MTU (\(mtu))", atLevel: .debug)
-            mtu = negotiatedMTU
         }
         
         // if reassembly {
