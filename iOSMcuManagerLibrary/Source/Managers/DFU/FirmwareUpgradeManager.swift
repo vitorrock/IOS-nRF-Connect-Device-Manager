@@ -264,6 +264,7 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
     private func confirm(_ image: FirmwareUpgradeImage) {
         objc_sync_setState(.confirm)
         if !paused {
+            log(msg: "[DEBUG-DFU] confirm(): image=\(image.image), slot=\(image.slot), hash=\(image.hash.map { String(format: "%02x", $0) }.prefix(8).joined())", atLevel: .info)
             log(msg: "Sending Image Confirm command to image \(image.image) (slot \(image.slot))...", atLevel: .verbose)
             imageManager.confirm(hash: [UInt8](image.hash), callback: confirmCallback)
         }
@@ -297,19 +298,23 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
      are tested, then Reset, and now we need to Confirm all Images.
      */
     private func testAndConfirmAfterReset() {
+        log(msg: "[DEBUG-DFU] testAndConfirmAfterReset() called. Images: \(images.map { "img\($0.image) slot\($0.slot) uploaded=\($0.uploaded) tested=\($0.tested) confirmed=\($0.confirmed) confirmSent=\($0.confirmSent)" })", atLevel: .info)
         if let untestedImage = images.first(where: { $0.uploaded && !$0.tested }) {
+            log(msg: "[DEBUG-DFU] testAndConfirmAfterReset: untested image found: img\(untestedImage.image) slot\(untestedImage.slot)", atLevel: .error)
             self.fail(error: FirmwareUpgradeError.untestedImageFound(image: untestedImage.image, slot: untestedImage.slot))
             return
         }
-        
+
         if let firstUnconfirmedImage = images.first(where: {
             $0.uploaded && !$0.confirmed && !$0.confirmSent }
         ) {
+            log(msg: "[DEBUG-DFU] testAndConfirmAfterReset: confirming img\(firstUnconfirmedImage.image) slot\(firstUnconfirmedImage.slot)", atLevel: .info)
             confirm(firstUnconfirmedImage)
             mark(firstUnconfirmedImage, as: \.confirmSent)
         } else {
             // in .testAndConfirm, we test all uploaded images before Reset.
             // So if we're here after Reset and there's nothing to confirm, we're done.
+            log(msg: "[DEBUG-DFU] testAndConfirmAfterReset: all confirmed, calling success()", atLevel: .info)
             self.success()
         }
     }
@@ -332,11 +337,13 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
     }
     
     private func fail(error: Error) {
+        let nsError = error as NSError
+        log(msg: "[DEBUG-DFU] fail(): domain=\(nsError.domain), code=\(nsError.code), desc=\(nsError.localizedDescription), state=\(state)", atLevel: .error)
         objc_sync_enter(self)
         defer {
             objc_sync_exit(self)
         }
-        
+
         var errorOverride = error
         if let mcuMgrError = error as? McuMgrError,
            case let McuMgrError.returnCode(returnCode) = mcuMgrError {
@@ -795,16 +802,20 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
     private lazy var confirmCallback: McuMgrCallback<McuMgrImageStateResponse> = { [weak self] response, error in
         // Ensure the manager is not released.
         guard let self else { return }
-        
+
         // Check for an error.
         if let error {
+            let nsError = error as NSError
+            self.log(msg: "[DEBUG-DFU] confirmCallback ERROR: domain=\(nsError.domain), code=\(nsError.code), desc=\(nsError.localizedDescription)", atLevel: .error)
             self.fail(error: error)
             return
         }
         guard let response else {
+            self.log(msg: "[DEBUG-DFU] confirmCallback: response is nil", atLevel: .error)
             self.fail(error: FirmwareUpgradeError.unknown("Image Confirm response is nil."))
             return
         }
+        self.log(msg: "[DEBUG-DFU] confirmCallback SUCCESS: \(response)", atLevel: .info)
         self.log(msg: "Image Confirm response: \(response)", atLevel: .application)
         // Check for McuMgrReturnCode error.
         if let error = response.getError() {
@@ -970,12 +981,13 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
     }
     
     public func transport(_ transport: McuMgrTransport, didChangeStateTo state: McuMgrTransportState) {
+        log(msg: "[DEBUG-DFU] transport didChangeStateTo: \(state), upgradeState=\(self.state)", atLevel: .info)
         transport.removeObserver(self)
         // Disregard connected state.
         guard state == .disconnected else {
             return
         }
-        
+
         self.log(msg: "Device has disconnected", atLevel: .info)
         let timeSinceReset: TimeInterval
         if let resetResponseTime = resetResponseTime {
@@ -1005,22 +1017,28 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
     
     /// Reconnect to the device and continue the
     private func reconnect() {
+        log(msg: "[DEBUG-DFU] reconnect() called. upgradeState=\(state), upgradeMode=\(configuration.upgradeMode)", atLevel: .info)
         imageManager.transport.connect { [weak self] result in
             guard let self = self else {
                 return
             }
             switch result {
             case .connected:
+                self.log(msg: "[DEBUG-DFU] reconnect: connected", atLevel: .info)
                 self.log(msg: "Reconnect successful", atLevel: .info)
             case .deferred:
+                self.log(msg: "[DEBUG-DFU] reconnect: deferred", atLevel: .info)
                 self.log(msg: "Reconnect deferred", atLevel: .info)
             case .failed(let error):
+                let nsError = error as NSError
+                self.log(msg: "[DEBUG-DFU] reconnect FAILED: domain=\(nsError.domain), code=\(nsError.code), desc=\(nsError.localizedDescription)", atLevel: .error)
                 self.log(msg: "Reconnect failed: \(error)", atLevel: .error)
                 self.fail(error: error)
                 return
             }
-            
+
             // Continue the upgrade after reconnect.
+            self.log(msg: "[DEBUG-DFU] reconnect: continuing upgrade. state=\(self.state), mode=\(self.configuration.upgradeMode)", atLevel: .info)
             switch self.state {
             case .requestMcuMgrParameters:
                 self.requestMcuMgrParameters()
@@ -1029,12 +1047,14 @@ public class FirmwareUpgradeManager: FirmwareUpgradeController, ConnectionObserv
             case .reset:
                 switch self.configuration.upgradeMode {
                 case .testAndConfirm:
+                    self.log(msg: "[DEBUG-DFU] reconnect: state=.reset, mode=.testAndConfirm -> calling testAndConfirmAfterReset()", atLevel: .info)
                     self.testAndConfirmAfterReset()
                 default:
                     self.log(msg: "Upgrade complete", atLevel: .application)
                     self.success()
                 }
             default:
+                self.log(msg: "[DEBUG-DFU] reconnect: unexpected state=\(self.state)", atLevel: .warning)
                 break
             }
         }

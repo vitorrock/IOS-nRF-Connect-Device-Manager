@@ -139,6 +139,7 @@ private extension McuMgrBleROBWriteBuffer {
                 unsafe_logResume(write)
             }
             
+            log(msg: "[DEBUG-DFU] writeValue(.withoutResponse): characteristic=\(write.characteristic.uuid.uuidString), seq=\(write.mcuMgrSequenceNumber), chunk=\(write.chunkIndex), bytes=\(write.chunk.count)", atLevel: .info)
             peripheral.writeValue(write.chunk, for: write.characteristic,
                                   type: .withoutResponse)
             write.callback(write.chunk, nil)

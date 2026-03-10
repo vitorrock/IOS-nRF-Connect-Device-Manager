@@ -78,6 +78,9 @@ public class McuMgrBleTransport: NSObject {
     }
     /// The log delegate will receive transport logs.
     public weak var logDelegate: McuMgrLogDelegate?
+
+    /// Timestamp of the last successful connection (for debug logging).
+    internal var debugConnectionTimestamp: Date?
     
     /// Set to values larger than 1 to enable Parallel Writes
     ///
@@ -384,9 +387,14 @@ extension McuMgrBleTransport: McuMgrTransport {
         
         // Make sure the SMP characteristic is not nil.
         guard let smpCharacteristic else {
+            log(msg: "[DEBUG-DFU] _send: smpCharacteristic is nil!", atLevel: .error)
             return .failure(McuMgrBleTransportError.missingCharacteristic)
         }
-        
+
+        let timeSinceConnect = debugConnectionTimestamp.map { "\(Date().timeIntervalSince($0))s" } ?? "unknown"
+        let props = smpCharacteristic.properties
+        log(msg: "[DEBUG-DFU] _send: characteristic=\(smpCharacteristic.uuid.uuidString), writeWithoutResponse=\(props.contains(.writeWithoutResponse)), write=\(props.contains(.write)), timeSinceConnect=\(timeSinceConnect)", atLevel: .info)
+
         guard let sequenceNumber = data.readMcuMgrHeaderSequenceNumber() else {
             return .failure(McuMgrTransportError.badHeader)
         }
