@@ -62,6 +62,9 @@ public class McuMgrBleTransport: NSObject {
     /// SMP Characteristic object. Used to write requests and receive
     /// notifications.
     internal var smpCharacteristic: CBCharacteristic?
+
+    /// Timestamp when the peripheral connected (for debug timing).
+    internal var debugConnectionTimestamp: Date?
     
     public var mtu: Int! {
         didSet {
@@ -435,7 +438,8 @@ extension McuMgrBleTransport: McuMgrTransport {
             log(msg: "[DEBUG-DFU] _send: smpCharacteristic is nil!", atLevel: .error)
             return .failure(McuMgrBleTransportError.missingCharacteristic)
         }
-        log(msg: "[DEBUG-DFU] _send: smpCharacteristic UUID=\(smpCharacteristic.uuid.uuidString), write=\(smpCharacteristic.properties.contains(.write)), writeWithoutResponse=\(smpCharacteristic.properties.contains(.writeWithoutResponse))", atLevel: .debug)
+        let timeSinceConnect = debugConnectionTimestamp.map { String(format: "%.3fs", Date().timeIntervalSince($0)) } ?? "unknown"
+        log(msg: "[DEBUG-DFU] _send: smpCharacteristic UUID=\(smpCharacteristic.uuid.uuidString), write=\(smpCharacteristic.properties.contains(.write)), writeWithoutResponse=\(smpCharacteristic.properties.contains(.writeWithoutResponse)), timeSinceConnect=\(timeSinceConnect)", atLevel: .debug)
         
         guard let sequenceNumber = data.readMcuMgrHeaderSequenceNumber() else {
             return .failure(McuMgrTransportError.badHeader)

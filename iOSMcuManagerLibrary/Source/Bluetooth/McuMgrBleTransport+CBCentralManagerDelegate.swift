@@ -33,8 +33,10 @@ extension McuMgrBleTransport: CBCentralManagerDelegate {
         guard self.identifier == peripheral.identifier else { return }
 
         log(msg: "Peripheral connected", atLevel: .info)
+        debugConnectionTimestamp = Date()
         log(msg: "[DEBUG-DFU] didConnect - peripheral: \(peripheral.identifier), name: \(peripheral.name ?? "nil"), state: \(peripheral.state.rawValue)", atLevel: .info)
         log(msg: "[DEBUG-DFU] didConnect - smpCharacteristic before reset: \(smpCharacteristic?.uuid.uuidString ?? "nil")", atLevel: .info)
+        log(msg: "[DEBUG-DFU] didConnect - timestamp: \(debugConnectionTimestamp!)", atLevel: .info)
         state = .initializing
         previousUpdateNotificationSequenceNumber = nil
         log(msg: "[DEBUG-DFU] Starting service discovery for UUID: \(configuration.serviceUUID.uuidString)", atLevel: .info)

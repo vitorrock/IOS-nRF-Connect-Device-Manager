@@ -129,7 +129,8 @@ extension McuMgrBleTransport: CBPeripheralDelegate {
 
         if let error = error {
             let nsError = error as NSError
-            log(msg: "[DEBUG-DFU] didUpdateValueFor ERROR: \(error.localizedDescription) (domain: \(nsError.domain), code: \(nsError.code))", atLevel: .error)
+            let timeSinceConnect = debugConnectionTimestamp.map { String(format: "%.3fs", Date().timeIntervalSince($0)) } ?? "unknown"
+            log(msg: "[DEBUG-DFU] didUpdateValueFor ERROR: \(error.localizedDescription) (domain: \(nsError.domain), code: \(nsError.code)), timeSinceConnect=\(timeSinceConnect)", atLevel: .error)
             writeState.onError(error)
             return
         }
