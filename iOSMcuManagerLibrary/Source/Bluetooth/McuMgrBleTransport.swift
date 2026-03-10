@@ -432,8 +432,10 @@ extension McuMgrBleTransport: McuMgrTransport {
         
         // Make sure the SMP characteristic is not nil.
         guard let smpCharacteristic else {
+            log(msg: "[DEBUG-DFU] _send: smpCharacteristic is nil!", atLevel: .error)
             return .failure(McuMgrBleTransportError.missingCharacteristic)
         }
+        log(msg: "[DEBUG-DFU] _send: smpCharacteristic UUID=\(smpCharacteristic.uuid.uuidString), write=\(smpCharacteristic.properties.contains(.write)), writeWithoutResponse=\(smpCharacteristic.properties.contains(.writeWithoutResponse))", atLevel: .debug)
         
         guard let sequenceNumber = data.readMcuMgrHeaderSequenceNumber() else {
             return .failure(McuMgrTransportError.badHeader)

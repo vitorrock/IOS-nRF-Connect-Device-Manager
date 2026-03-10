@@ -31,11 +31,13 @@ extension McuMgrBleTransport: CBCentralManagerDelegate {
     
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard self.identifier == peripheral.identifier else { return }
-        
+
         log(msg: "Peripheral connected", atLevel: .info)
+        log(msg: "[DEBUG-DFU] didConnect - peripheral: \(peripheral.identifier), name: \(peripheral.name ?? "nil"), state: \(peripheral.state.rawValue)", atLevel: .info)
+        log(msg: "[DEBUG-DFU] didConnect - smpCharacteristic before reset: \(smpCharacteristic?.uuid.uuidString ?? "nil")", atLevel: .info)
         state = .initializing
         previousUpdateNotificationSequenceNumber = nil
-        log(msg: "Discovering services...", atLevel: .verbose)
+        log(msg: "[DEBUG-DFU] Starting service discovery for UUID: \(configuration.serviceUUID.uuidString)", atLevel: .info)
         peripheral.delegate = self
         peripheral.discoverServices([configuration.serviceUUID])
     }
@@ -43,6 +45,12 @@ extension McuMgrBleTransport: CBCentralManagerDelegate {
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         guard self.identifier == peripheral.identifier else {
             return
+        }
+        if let error {
+            let nsError = error as NSError
+            log(msg: "[DEBUG-DFU] Peripheral disconnected with error: \(error.localizedDescription) (domain: \(nsError.domain), code: \(nsError.code))", atLevel: .warning)
+        } else {
+            log(msg: "[DEBUG-DFU] Peripheral disconnected (no error)", atLevel: .info)
         }
         log(msg: "Peripheral disconnected", atLevel: .info)
         didDisconnect()
