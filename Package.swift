@@ -10,10 +10,6 @@ let package = Package(
             name: "iOSMcuManagerLibrary",
             targets: ["iOSMcuManagerLibrary"]
         ),
-        .library(
-            name: "iOSOtaLibrary",
-            targets: ["iOSOtaLibrary"]
-        ),
     ],
     dependencies: [
         .package(
@@ -23,12 +19,6 @@ let package = Package(
         .package(url: "https://github.com/weichsel/ZIPFoundation.git",
             .upToNextMajor(from: "0.9.0")
         ),
-        .package(url: "https://github.com/NordicSemiconductor/IOS-BLE-Library",
-            .branchItem("main")
-        ),
-        .package(url: "https://github.com/NordicPlayground/IOS-Common-Libraries",
-            .branchItem("13")
-        )
     ],
     targets: [
         .target(
@@ -37,13 +27,5 @@ let package = Package(
             path: "iOSMcuManagerLibrary/Source",
             exclude: ["Info.plist"]
         ),
-        .target(
-            name: "iOSOtaLibrary",
-            dependencies: [
-                .product(name: "iOS-BLE-Library-Mock", package: "IOS-BLE-Library"),
-                .product(name: "iOSCommonLibraries", package: "IOS-Common-Libraries")
-            ],
-            path: "iOSOtaLibrary/Source"
-        )
     ]
 )
